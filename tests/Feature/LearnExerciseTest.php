@@ -212,6 +212,44 @@ class LearnExerciseTest extends TestCase
             ->assertOk();
     }
 
+    #[Test]
+    public function test_failed_kolibri_sign_in_shows_the_error_instead_of_a_blank_frame()
+    {
+        [$skill, $map] = $this->createSkillWithExercise();
+        $run = $this->createActiveRun($skill, $map);
+
+        $this->mockKolibriProvisioner();
+        $client = $this->mockKolibriClient();
+        $client->shouldReceive('openSession')->andReturn(null);
+
+        $response = $this->actingAs($this->student)
+            ->get(route('learn.exercise', ['skill' => $skill, 'run' => $run->id]))
+            ->assertOk()
+            ->assertSee('You could not be signed in to the exercise server')
+            ->assertSee('var ssoReady = false;', false);
+
+        // No Kolibri session cookie: the frame would open anonymous and stay blank.
+        foreach ($response->headers->getCookies() as $cookie) {
+            $this->assertStringStartsNotWith('kolibri', $cookie->getName());
+        }
+    }
+
+    #[Test]
+    public function test_successful_kolibri_sign_in_loads_the_frame()
+    {
+        [$skill, $map] = $this->createSkillWithExercise();
+        $run = $this->createActiveRun($skill, $map);
+
+        $this->mockKolibriProvisioner();
+        $this->mockKolibriClient();
+
+        $this->actingAs($this->student)
+            ->get(route('learn.exercise', ['skill' => $skill, 'run' => $run->id]))
+            ->assertOk()
+            ->assertSee('var ssoReady = true;', false)
+            ->assertDontSee('You could not be signed in');
+    }
+
     // ===================== 2. SCORE TRACKING =====================
 
     #[Test]

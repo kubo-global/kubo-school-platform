@@ -93,7 +93,11 @@
                         </svg>
                     </div>
                     <p style="font-weight:600; color:#111827; margin-bottom:0.5rem">Could not load exercise</p>
+                    @if($ssoReady)
                     <p style="font-size:0.875rem; color:#6b7280; margin-bottom:1.5rem">The exercise server is not reachable. Check that the server is running and try again.</p>
+                    @else
+                    <p style="font-size:0.875rem; color:#6b7280; margin-bottom:1.5rem">You could not be signed in to the exercise server. Try again in a minute; if it keeps happening, tell your teacher.</p>
+                    @endif
                     <button onclick="location.reload()" style="padding:0.5rem 1.5rem; background:#2563eb; color:#fff; border:none; border-radius:0.375rem; font-weight:600; font-size:0.875rem; cursor:pointer">Try again</button>
                 </div>
             </div>
@@ -178,10 +182,16 @@
         // Load the exercise. KUBO established the learner's Kolibri session
         // server-side (the session cookie is already set on this page, scoped to
         // the proxy path), so we load the content directly — the learner's
-        // password never reaches the browser. If SSO wasn't ready, the iframe
-        // still loads and Kolibri shows its own name-picker as a fallback.
+        // password never reaches the browser.
+        //
+        // If that sign-in failed, do not load the frame: an anonymous Kolibri
+        // session cannot track an exercise (its first progress call answers 500)
+        // and the frame stays blank behind the spinner, which reads as "Kolibri
+        // is down" while Kolibri is fine. Say what happened instead; "Try again"
+        // reloads, and the page provisions and signs in again on the way.
         (function() {
             var contentUrl = @json($contentUrl);
+            var ssoReady = @json($ssoReady);
 
             function loadExercise() {
                 frame.src = contentUrl;
@@ -190,6 +200,11 @@
             function showLoadError() {
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('load-error').style.display = 'block';
+            }
+
+            if (!ssoReady) {
+                showLoadError();
+                return;
             }
 
             // Timeout: if the exercise doesn't load within 15s, show error.
