@@ -13,6 +13,14 @@
 #     ./deploy.sh <branch>     # deploy a specific branch
 #
 # The script is safe to re-run and always brings the site back up, even on error.
+#
+# For the school Pis only, which are plain checkouts. The public demo on Forge
+# deploys itself on every push to main (zero-downtime releases under
+# releases/<id>, `current` a symlink, one shared storage/); this script assumes a
+# single checkout and must not run there. On 2026-09-11 it did: `artisan down`
+# wrote the flag into the shared storage, the reset --hard hit one release while
+# nginx served another, and no later `artisan up` could find the flag, so the
+# demo stayed on "Down for maintenance" after the deploy had long finished.
 
 set -euo pipefail
 
@@ -20,6 +28,15 @@ BRANCH="${1:-main}"
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 [ -f artisan ] || { echo "error: run this from the KUBO app directory (no artisan found)."; exit 1; }
+
+# A Forge site: releases/<id> with `current` as a symlink beside a shared storage/.
+# The physical path, because `current` is that symlink and `$PWD` would hide it.
+if [[ "$(pwd -P)" == */releases/* ]] || [ -n "${FORGE_SITE_PATH:-}" ]; then
+    echo "error: this looks like a Forge site ($(pwd -P))."
+    echo "       Forge deploys it on every push to main; do not run deploy.sh here."
+    echo "       To redeploy now, use the Deploy button in Forge or push to main."
+    exit 1
+fi
 
 log() { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
 
