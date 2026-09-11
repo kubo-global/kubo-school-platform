@@ -37,12 +37,17 @@ use Illuminate\Support\Facades\DB;
  */
 class DemoSeeder extends Seeder
 {
-    /** School years to build: label => [startYear, endYear]. Last entry is "current". */
-    private array $years = [
-        '2023 - 2024' => [2023, 2024],
-        '2024 - 2025' => [2024, 2025],
-        '2025 - 2026' => [2025, 2026],
-    ];
+    /**
+     * School years to build: label => [startYear, endYear]. Last entry is "current".
+     * Derived from today in run(): three years ending in the one that spans today.
+     * The list was hardcoded up to 2025 - 2026, so from 1 September 2026 nothing
+     * spanned today, `kolibri:provision` refused ("No current schoolyear") after every
+     * nightly reset, and no pupil on the demo could open an exercise.
+     */
+    private array $years = [];
+
+    /** The day the demo pretends it is: today. Dates in the current year are seeded up to here. */
+    private Carbon $today;
 
     /** Grades in order; value = sections. null section => single class ("Grade 1"). */
     private array $gradeSections = [
@@ -81,6 +86,8 @@ class DemoSeeder extends Seeder
     public function run(): void
     {
         mt_srand(20260627);
+        $this->today = Carbon::today();
+        $this->years = $this->schoolyearsUpToToday(3);
         $this->names = require database_path('seeders/data/gambian_names.php');
         // Demo accounts all share the password "secret". Hash it once at a low cost
         // factor and reuse the string — hashing 500+ users at the default rounds was
@@ -274,20 +281,46 @@ class DemoSeeder extends Seeder
      * Mostly present, with a sprinkling of absent/late so totals and the report
      * book's Time present/absent have realistic data.
      */
+    /**
+     * The last $count school years, the last one spanning today. A school year runs
+     * 1 September to 31 August, so a date before September belongs to the year
+     * that started the previous calendar year.
+     */
+    private function schoolyearsUpToToday(int $count): array
+    {
+        $currentStart = $this->today->month >= 9 ? $this->today->year : $this->today->year - 1;
+        $years = [];
+        for ($startY = $currentStart - $count + 1; $startY <= $currentStart; $startY++) {
+            $years["{$startY} - ".($startY + 1)] = [$startY, $startY + 1];
+        }
+        return $years;
+    }
+
+    /**
+     * Up to twelve school days ending today (or in late June for a year that is
+     * over), never earlier than the year's first day of school.
+     */
+    private function recentSchoolDays(int $endY): array
+    {
+        $dates = [];
+        $d = $this->today->lt(Carbon::parse("{$endY}-06-26")) ? $this->today->copy() : Carbon::parse("{$endY}-06-26");
+        $firstDay = Carbon::parse(($endY - 1)."-09-01");
+        while (count($dates) < 12 && $d->gte($firstDay)) {
+            if ($d->isWeekday()) {
+                $dates[] = $d->copy();
+            }
+            $d->subDay();
+        }
+        return $dates;
+    }
+
     private function makeAttendance(Offering $offering, array $students, int $endY): void
     {
         if (! $students) {
             return;
         }
-        // 12 weekdays counting back from a fixed date in term 3 (deterministic).
-        $dates = [];
-        $d = Carbon::parse("{$endY}-06-26");
-        while (count($dates) < 12) {
-            if ($d->isWeekday()) {
-                $dates[] = $d->toDateString();
-            }
-            $d->subDay();
-        }
+        // 12 school days counting back from today (deterministic within a day).
+        $dates = array_map(fn (Carbon $d) => $d->toDateString(), $this->recentSchoolDays($endY));
         $teacherIds = $offering->teachers()->pluck('users.id')->all() ?: $this->teachers;
         $recordedBy = $teacherIds[0] ?? null;
         $stamp = Carbon::now();
@@ -318,14 +351,7 @@ class DemoSeeder extends Seeder
             return; // no timetable yet — nothing to base hours on
         }
 
-        $dates = [];
-        $d = Carbon::parse("{$endY}-06-26");
-        while (count($dates) < 12) {
-            if ($d->isWeekday()) {
-                $dates[] = $d->copy();
-            }
-            $d->subDay();
-        }
+        $dates = $this->recentSchoolDays($endY);
         $recordedBy = $offering->teachers()->pluck('users.id')->first() ?? ($this->teachers[0] ?? null);
         $stamp = Carbon::now();
         $lostPattern = [0, 0, 0.5, 0, 1, 0.25, 0, 0.5, 0, 0.75, 0, 0.5];
@@ -367,7 +393,7 @@ class DemoSeeder extends Seeder
         $treatments = ['Cleaned, advised rest', 'Removed splinter, cleaned', 'Disinfected, plaster applied', 'Cleaned and bandaged', 'Cool water, dressing'];
         $woundRemarks = ['Visit again in 2 days', 'Healing well'];
         for ($i = 0; $i < 9; $i++) {
-            $opened = Carbon::create(2026, mt_rand(4, 6), mt_rand(1, 27));
+            $opened = $this->today->copy()->subDays(mt_rand(3, 90));
             $open = $i < 5; // some still open, some closed
             $caseId = DB::table('wound_cases')->insertGetId([
                 'user_id' => $student(), 'opened_on' => $opened->toDateString(), 'diagnosis' => $pick($diagnoses),
@@ -400,7 +426,7 @@ class DemoSeeder extends Seeder
         ];
         for ($i = 0; $i < 14; $i++) {
             [$complaint, $location, $action, $medication, $feverish] = $incidents[$i % count($incidents)];
-            $occurred = Carbon::create(2026, mt_rand(4, 6), mt_rand(1, 27), mt_rand(8, 14), mt_rand(0, 59));
+            $occurred = $this->today->copy()->subDays(mt_rand(1, 90))->setTime(mt_rand(8, 14), mt_rand(0, 59));
             $sentHome = $feverish || mt_rand(0, 4) === 0;
             $hospital = mt_rand(0, 12) === 0;
             $open = $i < 3; // a few still need follow-up
@@ -680,11 +706,18 @@ class DemoSeeder extends Seeder
             foreach ($subjects as $subjectName) {
                 $subjectId = $this->subjectIds[$subjectName];
                 for ($t = 1; $t <= $testsPerTerm; $t++) {
-                    $testMonth = $termStart->copy()->addMonths($t - 1);
-                    $a = $this->makeAssessment('Test', $subjectId, $offering->id, $term->id, 25, "Test {$t}", $testMonth->format('Y-m').'-15');
+                    $testDate = $termStart->copy()->addMonths($t - 1)->day(15);
+                    if ($testDate->gt($this->today)) {
+                        continue; // not sat yet: the current year is seeded up to today
+                    }
+                    $a = $this->makeAssessment('Test', $subjectId, $offering->id, $term->id, 25, "Test {$t}", $testDate->toDateString());
                     $this->bufferScores($a, $students, $ability, 25);
                 }
-                $exam = $this->makeAssessment('Exam', $subjectId, $offering->id, $term->id, 75, 'Exam', $examMonth->format('Y-m').'-25');
+                $examDate = $examMonth->copy()->day(25);
+                if ($examDate->gt($this->today)) {
+                    continue;
+                }
+                $exam = $this->makeAssessment('Exam', $subjectId, $offering->id, $term->id, 75, 'Exam', $examDate->toDateString());
                 $this->bufferScores($exam, $students, $ability, 75);
             }
         }
@@ -692,6 +725,9 @@ class DemoSeeder extends Seeder
 
     private function makeNatScores(Offering $offering, string $gradeName, array $students, int $endY): void
     {
+        if ($this->today->lt(Carbon::parse("{$endY}-06-10"))) {
+            return; // the NAT of the current year has not been sat yet
+        }
         foreach ($this->natSubjects[$gradeName] as $subjectName) {
             $a = $this->makeAssessment(
                 'National Assessment Test', $this->subjectIds[$subjectName], $offering->id, null, 100,
