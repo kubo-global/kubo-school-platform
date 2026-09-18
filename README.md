@@ -1,6 +1,6 @@
 # KUBO School Platform
 
-[![CircleCI](https://dl.circleci.com/status-badge/img/gh/kubo-global/kubo/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/kubo-global/kubo/tree/main)
+[![Tests](https://github.com/kubo-global/kubo-school-platform/actions/workflows/tests.yml/badge.svg)](https://github.com/kubo-global/kubo-school-platform/actions/workflows/tests.yml)
 
 KUBO is a digital school suite developed by Afrodidact: student records, scores, attendance,
 timetables, health records — and every official document a school normally compiles by hand,
