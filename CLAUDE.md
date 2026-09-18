@@ -79,7 +79,7 @@ Uses `spatie/laravel-permission`. Roles: headmaster, teacher, caregiver, admin, 
 - Tests use in-memory SQLite (`DB_CONNECTION=testing`) with foreign keys disabled
 - `TestCase` base class seeds `RolesAndPermissionsSeeder` and creates test users (teacher, admin, headmaster, student)
 - `BasicSchoolSeeder` sets up complete school structure for feature tests
-- CI: CircleCI runs PHPUnit on PHP 8.5 Docker image
+- CI: GitHub Actions (`.github/workflows/tests.yml`) runs PHPUnit on PHP 8.5 on every push and pull request
 
 ### Database Seeding
 `php artisan db:seed` runs `DatabaseSeeder` = `RolesAndPermissionsSeeder` (once — not idempotent) then `DemoSeeder`. `DemoSeeder` builds the whole demo: 3 school years, multi-class grades, prod-like Gambian names (from `database/seeders/data/gambian_names.php`), Test/Exam scores, NAT scores, timetables, and health records. Feature tests don't use it — `TestCase` seeds `RolesAndPermissionsSeeder` + `BasicSchoolSeeder` and uses factories.

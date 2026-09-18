@@ -1,0 +1,53 @@
+name: Tests
+
+# PHPUnit on every push and pull request, the same steps CircleCI ran until
+# 2026-09-18. On GitHub Actions like the other repos, and because Elixir reads
+# the last completed Actions run on main as the project's CI: on CircleCI the
+# tests were invisible to Portal.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  phpunit:
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: testing
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, pdo_sqlite, gd, zip
+          coverage: none
+
+      - name: Clone kubo-kolibri sibling (path repo in composer.json)
+        run: git clone --depth 1 https://github.com/kubo-global/kubo-kolibri.git ../kubo-kolibri
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Setup environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run tests
+        run: vendor/bin/phpunit
