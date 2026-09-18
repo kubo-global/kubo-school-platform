@@ -94,6 +94,22 @@ a browser on the machine or the school's LAN and you are signed in.
 - **Time.** Keep the device clock correct (term/NAT logic is date-driven); use an RTC module or
   NTP when the device occasionally sees the internet.
 
+## End-of-term analysis for every class
+
+When the head teacher asks for "the results analysed by class", one command prints the
+full-term result analysis and histogram of every class as PDFs (the same figures as
+Results / By term, on the combined term marks: tests 25% + exam 75%):
+
+```bash
+php artisan results:analysis --term="Term 3"                 # current school year, every class
+php artisan results:analysis --year="2025 - 2026" --term="Term 3" --class="Grade 4" --class="Grade 5"
+php artisan results:analysis --term="Term 3" --out=/media/usb/analysis --no-histogram
+```
+
+Without `--term` it takes the term we are in today (else the year's last); without `--out`
+the PDFs land in `storage/app/analysis/<year>/<term>/`, two per class. A class with no
+marks in that term is listed and skipped, not printed empty.
+
 ## Updating a deployed server
 
 ```bash

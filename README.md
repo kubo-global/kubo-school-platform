@@ -28,8 +28,8 @@ underlying data, so it generates the documents:
 | **Term report** | Per-pupil PDF: weighted test/exam totals per subject, grade + remark from the rubric, position, average, class size, and the typed conduct/general remarks. Per-school card layouts (`term_card_layout`) | Reports / Prepare reports |
 | **Report Book** | Booklet-style annual grid (months × subjects), printable filled **or blank**, per pupil or whole class | Reports / Positions |
 | **Internal Assessment Result Sheet** | The class master list: pupils × subjects with Total, Average % and Position for a term | Positions |
-| **Result analysis** | Per-sex fail/pass/mastery counts and percentages per subject for a period or the whole term | Results / By term |
-| **Result histogram** | The analysis as bar charts, printable filled or blank to colour in | Results / By term |
+| **Result analysis** | Per-sex fail/pass/mastery counts and percentages per subject for a period or the whole term | Results / By term, or `php artisan results:analysis` for every class at once |
+| **Result histogram** | The analysis as bar charts, printable filled or blank to colour in | Results / By term, or `php artisan results:analysis` |
 | **Students Daily Attendance** | Monthly summary: boys/girls present/absent per day, weekly + monthly totals | Attendance register |
 | **NAT scores listing** | Official candidate sheet with mastery/fail shading (absentees optionally hidden) | NAT screen |
 | **NAT analysis** | Per-sex fail/pass/mastery counts, percentages and averages per subject, with bar charts | NAT screen |

@@ -86,4 +86,25 @@ abstract class TestCase extends BaseTestCase
             'schoolyear_id' => $this->schoolyear->id
         ]);
     }
+
+    /**
+     * The text of a (DomPDF) PDF: inflate the content streams and take the
+     * [(...)] TJ runs. DomPDF pads glyphs with NUL/space bytes, so those are
+     * stripped; runs are newline-joined so a value can't bleed into the next run.
+     */
+    protected function pdfText(string $pdf): string
+    {
+        preg_match_all('/stream\r?\n(.*?)endstream/s', $pdf, $streams);
+        $runs = [];
+        foreach ($streams[1] as $stream) {
+            $inflated = @gzuncompress($stream);
+            if ($inflated === false) {
+                continue;
+            }
+            preg_match_all('/\[\((.*?)\)\]\s*TJ/s', $inflated, $texts);
+            array_push($runs, ...$texts[1]);
+        }
+
+        return str_replace([' ', "\x00"], '', implode("\n", $runs))."\n";
+    }
 }

@@ -28,6 +28,7 @@ npm run build    # production build
 php artisan migrate
 php artisan db:seed
 php artisan tinker
+php artisan results:analysis --term="Term 3"   # full-term analysis + histogram PDFs for every class
 ```
 
 ## Architecture
