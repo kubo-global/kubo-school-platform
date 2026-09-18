@@ -114,7 +114,7 @@
       @if ($analysis)
         @include('pages.scorebook._analysis-tabs', [
           'analysisTitle' => ($term->name ?? 'Term').' (full term)',
-          'pdfParams' => null,
+          'pdfParams' => ['offering' => $offering, 'term' => $term->id, 'scope' => 'term'],
         ])
       @endif
     @endif

@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\NewInterfaceControllers;
 
+use App\Domain\Reporting\Services\ResultAnalysis;
 use App\Http\Controllers\Controller;
 use App\Models\Assessment;
 use App\Models\AssessmentScore;
 use App\Models\AssessmentType;
 use App\Models\Offering;
-use App\Models\Profile;
 use App\Models\School;
 use App\Models\Term;
 use Barryvdh\DomPDF\Facade\Pdf as PDF;
@@ -23,6 +23,8 @@ use Illuminate\Support\Facades\DB;
  */
 class TermResultController extends Controller
 {
+    public function __construct(private ResultAnalysis $analysis) {}
+
     public function grid(Request $request, Offering $offering)
     {
         $offering->load('grade', 'schoolyear');
@@ -270,10 +272,23 @@ class TermResultController extends Controller
         return $pdf->download('Result sheet '.$offering->displayName().' '.$period['label'].'.pdf');
     }
 
+    /**
+     * The analysis PDF: one period's raw marks by default; with ?scope=term the
+     * whole term combined (the By term page has no single period to name).
+     */
     public function analysis(Request $request, Offering $offering)
     {
         $offering->load('grade', 'schoolyear', 'principal');
         $school = School::first();
+
+        if ($request->input('scope') === 'term') {
+            $term = $this->requestedTerm($offering, $request);
+            abort_unless($term, 404);
+
+            return $this->analysis->termAnalysisPdf($offering, $term, $school)
+                ->download('Analysis '.$offering->displayName().' '.$term->name.' (full term).pdf');
+        }
+
         $period = $this->resolvePeriod($offering, $request);
         abort_unless($period['term'], 404);
 
@@ -293,6 +308,16 @@ class TermResultController extends Controller
     {
         $offering->load('grade', 'schoolyear');
         $school = School::first();
+
+        if ($request->input('scope') === 'term') {
+            $term = $this->requestedTerm($offering, $request);
+            abort_unless($term, 404);
+            $outline = $request->boolean('outline');
+
+            return $this->analysis->termHistogramPdf($offering, $term, $school, $outline)
+                ->download('Histogram '.($outline ? 'blank ' : '').$offering->displayName().' '.$term->name.' (full term).pdf');
+        }
+
         $period = $this->resolvePeriod($offering, $request);
         abort_unless($period['term'], 404);
 
@@ -405,7 +430,7 @@ class TermResultController extends Controller
             'gradeNum' => (int) preg_replace('/\D/', '', $offering->grade->name ?? ''),
             'passMark' => $this->passMarkFor(),
             'analysis' => ($term && $this->periodMode() === 'tests')
-                ? $this->termAnalysisData($offering, $rows, $this->analysisSubjects($subjects))
+                ? $this->analysis->fromRanked($offering, $term, $ranked)['analysis']
                 : null,
         ]);
     }
@@ -472,17 +497,10 @@ class TermResultController extends Controller
         return $rows;
     }
 
-    /**
-     * Subjects the result analysis and histogram cover: the class's flagged core
-     * subjects when any are set (a school's promotion analysis runs on core
-     * subjects only), else every counting subject — so schools without flags
-     * keep the full analysis.
-     */
+    /** See {@see ResultAnalysis::coreOrAll()}: the flagged core subjects, else every counting one. */
     private function analysisSubjects($countingSubjects)
     {
-        $core = $countingSubjects->filter(fn ($s) => (int) ($s->pivot->core ?? 0) === 1)->values();
-
-        return $core->isNotEmpty() ? $core : $countingSubjects;
+        return $this->analysis->coreOrAll($countingSubjects);
     }
 
     /** Pupils who actually sat this period: at least one subject with a real (non-absent) mark. */
@@ -493,89 +511,17 @@ class TermResultController extends Controller
             ->distinct()->count('user_id');
     }
 
-    /** Per-subject stats keyed male/female/overall (fail < 40, pass >= 40 incl. mastery, mastery >= 80). */
+    /** Per-subject stats keyed male/female/overall on one period's raw marks (bands in ResultAnalysis). */
     private function analysisData(Offering $offering, $exams, $subjects)
     {
         $scoreMap = $this->examScores($exams);
 
-        return $this->analysisFromMarks($offering, $subjects, function ($subj, $st) use ($exams, $scoreMap) {
+        return $this->analysis->bands($this->students($offering), $subjects, function ($subj, $st) use ($exams, $scoreMap) {
             $exam = $exams[$subj->id] ?? null;
             $entry = $exam ? ($scoreMap[$exam->id][$st->id] ?? null) : null;
 
             return ($entry && ! $entry['absent']) ? $entry['score'] : null;
         });
-    }
-
-    /**
-     * Term analysis for tests-mode schools: the same fail/pass/mastery bands,
-     * but over each subject's combined TERM mark (tests 25% + exam 75%, /100)
-     * instead of a single period's raw scores. $rows come from term().
-     */
-    private function termAnalysisData(Offering $offering, $rows, $subjects)
-    {
-        $marks = [];
-        foreach ($rows as $r) {
-            foreach ($r['marks'] as $subjectName => $m) {
-                $marks[$subjectName][$r['student']->id] = $m;
-            }
-        }
-
-        return $this->analysisFromMarks($offering, $subjects, fn ($subj, $st) => $marks[$subj->name][$st->id] ?? null);
-    }
-
-    /** Shared band machinery: $markOf(subject, student) returns a /100 mark or null (absent / no scores). */
-    private function analysisFromMarks(Offering $offering, $subjects, callable $markOf)
-    {
-        $students = $this->students($offering);
-        $genders = Profile::whereIn('user_id', $students->pluck('id'))->pluck('gender', 'user_id');
-
-        $statsFor = function ($subset, $subj) use ($markOf) {
-            $marks = [];
-            foreach ($subset as $st) {
-                $m = $markOf($subj, $st);
-                if ($m !== null) {
-                    $marks[] = $m;
-                }
-            }
-            $sat = count($marks);
-            $count = fn ($fn) => count(array_filter($marks, $fn));
-            // The three bands are exclusive so fail + pass + mastery totals 100%.
-            $fail = $count(fn ($m) => $m < 40);
-            $pass = $count(fn ($m) => $m >= 40 && $m < 80);
-            $mastery = $count(fn ($m) => $m >= 80);
-
-            // Percentages must also total exactly 100, so round by largest
-            // remainder instead of independently (which can give 99 or 101).
-            $pcts = [0, 0, 0];
-            if ($sat) {
-                $shares = array_map(fn ($n) => $n / $sat * 100, [$fail, $pass, $mastery]);
-                $pcts = array_map('intval', array_map('floor', $shares));
-                $left = 100 - array_sum($pcts);
-                $order = array_keys($shares);
-                usort($order, fn ($a, $b) => ($shares[$b] - floor($shares[$b])) <=> ($shares[$a] - floor($shares[$a])) ?: $a <=> $b);
-                for ($i = 0; $i < $left; $i++) {
-                    $pcts[$order[$i % 3]]++;
-                }
-            }
-
-            return [
-                'students' => $subset->count(), 'sat' => $sat,
-                'fail' => $fail, 'failPct' => $pcts[0],
-                'pass' => $pass, 'passPct' => $pcts[1],
-                'mastery' => $mastery, 'masteryPct' => $pcts[2],
-                'average' => $sat ? (int) round(array_sum($marks) / $sat) : 0,
-            ];
-        };
-
-        $males = $students->filter(fn ($s) => ($genders[$s->id] ?? null) === 'M');
-        $females = $students->filter(fn ($s) => ($genders[$s->id] ?? null) === 'F');
-
-        return $subjects->map(fn ($subj) => [
-            'subject' => $subj,
-            'male' => $statsFor($males, $subj),
-            'female' => $statsFor($females, $subj),
-            'overall' => $statsFor($students, $subj),
-        ]);
     }
 
     private function examScores($exams): array
@@ -850,25 +796,20 @@ class TermResultController extends Controller
 
     private function students(Offering $offering)
     {
-        return $offering->enrollments()
-            ->join('users', 'enrollments.user_id', '=', 'users.id')
-            ->where('users.archived', false)
-            ->orderBy('users.last_name')->orderBy('users.first_name')
-            ->with('student')->select('enrollments.*')->get()
-            ->map(fn ($e) => $e->student)->filter()->values();
+        return $this->analysis->students($offering);
     }
 
+    /** Counting subjects first, then the school's own column order (see ResultAnalysis::subjects). */
     private function subjects(Offering $offering, Term $term)
     {
-        // Counting subjects first, then the school's own order: an explicit
-        // per-class sort_order when set (matching their paper sheets), else the
-        // historic subject-id order.
-        return $offering->subjects($term->id)->get()
-            ->sortBy(fn ($s) => [
-                $s->countsTowardTotalResolved() ? 0 : 1,
-                $s->pivot->sort_order !== null ? (int) $s->pivot->sort_order : PHP_INT_MAX,
-                $s->id,
-            ])
-            ->values();
+        return $this->analysis->subjects($offering, $term);
+    }
+
+    /** The term named in the URL, else the term we are in today, else the first. */
+    private function requestedTerm(Offering $offering, Request $request): ?Term
+    {
+        $terms = $offering->schoolyear?->terms()->orderBy('start')->get() ?? collect();
+
+        return $this->resolveTerm($terms, (int) $request->input('term') ?: 0);
     }
 }
