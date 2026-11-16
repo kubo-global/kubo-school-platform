@@ -138,6 +138,109 @@ class ScoreEntryHardeningTest extends TestCase
 
     // ---- locking & access ---------------------------------------------------
 
+    // ---- maxima and percentages -------------------------------------------
+
+    private function testsMode(): void
+    {
+        $this->school->configs()->updateOrCreate(['key' => 'scorebook_period_mode'], ['value' => 'tests']);
+    }
+
+    private function periodParams(): array
+    {
+        return [
+            'offering' => $this->offering,
+            'term' => $this->openTerm->id,
+            'month' => Carbon::parse($this->openTerm->start)->format('Y-m'),
+        ];
+    }
+
+    #[Test]
+    public function a_column_without_an_assessment_limits_its_cells_to_the_default_maximum(): void
+    {
+        // Tests mode scores a test out of 25. The cells of a column that has no
+        // assessment yet must say so too, not accept anything up to 100.
+        $this->testsMode();
+
+        $html = $this->actingAs($this->headmaster)
+            ->get(route('term-grid.edit', $this->periodParams() + ['edit' => 1]))
+            ->assertOk()
+            ->getContent();
+
+        $cell = 'name="scores['.$this->maths->id.']['.$this->pupil->id.']"';
+        $this->assertMatchesRegularExpression('/max="25"\s+'.preg_quote($cell, '/').'/', $html);
+    }
+
+    #[Test]
+    public function the_example_fill_scales_to_each_columns_maximum(): void
+    {
+        $this->app['config']->set('app.demo', true);
+        $this->testsMode();
+
+        $html = $this->actingAs($this->headmaster)
+            ->get(route('term-grid.edit', $this->periodParams() + ['edit' => 1]))
+            ->assertOk()
+            ->getContent();
+
+        // Only mark cells, and each mark as a share of its column's maximum.
+        $this->assertStringContainsString('input[type=number][name^="scores["]', $html);
+        $this->assertStringContainsString('/ 100 * max', $html);
+    }
+
+    #[Test]
+    public function the_period_analysis_reads_a_mark_against_its_maximum(): void
+    {
+        // 18 out of 25 is 72%: a pass. Read as a raw 18 it fell below 40 and
+        // every pupil of a tests-mode school came out as failed.
+        $this->testsMode();
+        $assessment = $this->wizardAssessment($this->test, 25);
+        AssessmentScore::factory()->create(['assessment_id' => $assessment->id, 'user_id' => $this->pupil->id, 'score' => 18]);
+
+        $analysis = $this->actingAs($this->headmaster)
+            ->get(route('term-grid.report', $this->periodParams()))
+            ->assertOk()
+            ->viewData('analysis');
+
+        $overall = $analysis->first()['overall'];
+        $this->assertSame(1, $overall['sat']);
+        $this->assertSame(0, $overall['fail']);
+        $this->assertSame(1, $overall['pass']);
+        $this->assertSame(72, $overall['average']);
+    }
+
+    #[Test]
+    public function the_fail_mark_on_a_result_sheet_follows_the_columns_maximum(): void
+    {
+        // Months mode marks fails in red below 40%. In a column out of 50 that
+        // is below 20, so 30 passes and 15 fails.
+        $assessment = $this->wizardAssessment($this->test, 50);
+        AssessmentScore::factory()->create(['assessment_id' => $assessment->id, 'user_id' => $this->pupil->id, 'score' => 30]);
+
+        $response = $this->actingAs($this->headmaster)->get(route('term-grid.report', $this->periodParams()))->assertOk();
+        $this->assertEquals(20, $response->viewData('failBelow')[$this->maths->id]);
+        $response->assertDontSee('text-red-600 font-semibold', false);
+
+        AssessmentScore::where('assessment_id', $assessment->id)->update(['score' => 15]);
+        $this->actingAs($this->headmaster)->get(route('term-grid.report', $this->periodParams()))
+            ->assertOk()
+            ->assertSee('text-red-600 font-semibold', false);
+    }
+
+    #[Test]
+    public function the_wizard_starts_a_tests_mode_slot_at_the_schools_scale(): void
+    {
+        $this->testsMode();
+
+        $this->actingAs($this->headmaster)
+            ->get(route('reporting.assessment.create', ['type' => $this->test->id]))
+            ->assertOk()
+            ->assertSee('id="max_score" value="25"', false);
+
+        $this->actingAs($this->headmaster)
+            ->get(route('reporting.assessment.create', ['type' => $this->exam->id]))
+            ->assertOk()
+            ->assertSee('id="max_score" value="75"', false);
+    }
+
     #[Test]
     public function a_teacher_cannot_save_the_grid_of_a_closed_term(): void
     {

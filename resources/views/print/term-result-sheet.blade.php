@@ -54,7 +54,7 @@
             @elseif ($m === null)
               <td class="c absent">x</td>
             @else
-              <td class="c {{ ($passMark !== null && $m < $passMark) ? 'fail' : '' }}">{{ (int) round($m) }}</td>
+              <td class="c {{ ($passMark !== null && $m < ($failBelow[$s->id] ?? $passMark)) ? 'fail' : '' }}">{{ (int) round($m) }}</td>
             @endif
           @endforeach
           <td class="c total">{{ (int) round($r['total']) }}</td>

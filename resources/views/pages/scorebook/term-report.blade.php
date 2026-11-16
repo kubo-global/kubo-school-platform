@@ -123,7 +123,7 @@
                   @elseif ($m === null)
                     <td class="px-2 py-1.5 text-center text-gray-300 border-l border-gray-100">x</td>
                   @else
-                    <td class="px-2 py-1.5 text-center border-l border-gray-100 {{ ($passMark !== null && $m < $passMark) ? 'text-red-600 font-semibold' : 'text-gray-800' }}">{{ (int) round($m) }}</td>
+                    <td class="px-2 py-1.5 text-center border-l border-gray-100 {{ ($passMark !== null && $m < ($failBelow[$s->id] ?? $passMark)) ? 'text-red-600 font-semibold' : 'text-gray-800' }}">{{ (int) round($m) }}</td>
                   @endif
                 @endforeach
               </tr>

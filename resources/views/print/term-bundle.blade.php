@@ -87,7 +87,7 @@
               @php $m = $r['marks'][$s->id] ?? null; @endphp
               @if (! array_key_exists($s->id, $r['marks']))<td class="c"></td>
               @elseif ($m === null)<td class="c absent">x</td>
-              @elseif ($passMark !== null && $m < $passMark)<td class="c"><span class="fail">{{ (int) round($m) }}</span></td>
+              @elseif ($passMark !== null && $m < ($failBelow[$s->id] ?? $passMark))<td class="c"><span class="fail">{{ (int) round($m) }}</span></td>
               @else<td class="c">{{ (int) round($m) }}</td>@endif
             @endforeach
             <td class="c total">{{ (int) round($r['total']) }}</td>

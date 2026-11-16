@@ -267,6 +267,7 @@ class TermResultController extends Controller
             'displaySubjects' => $this->subjects($offering, $period['term']),
             'rows' => $this->rankedRows($offering, $exams, $subjects),
             'passMark' => $this->passMarkFor(),
+            'failBelow' => $this->failBelow($exams),
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download('Result sheet '.$offering->displayName().' '.$period['label'].'.pdf');
@@ -360,6 +361,7 @@ class TermResultController extends Controller
             'analysis' => $this->analysisData($offering, $exams, $this->analysisSubjects($subjects)),
             'outline' => $request->boolean('outline'),
             'passMark' => $this->passMarkFor(),
+            'failBelow' => $this->failBelow($exams),
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download('Results '.($request->boolean('outline') ? 'blank ' : '').$offering->displayName().' '.$period['label'].'.pdf');
@@ -386,6 +388,7 @@ class TermResultController extends Controller
             'analysis' => $this->analysisData($offering, $exams, $this->analysisSubjects($subjects)),
             'hasMarks' => $exams->isNotEmpty(),
             'passMark' => $this->passMarkFor(),
+            'failBelow' => $this->failBelow($exams),
         ]);
     }
 
@@ -511,7 +514,12 @@ class TermResultController extends Controller
             ->distinct()->count('user_id');
     }
 
-    /** Per-subject stats keyed male/female/overall on one period's raw marks (bands in ResultAnalysis). */
+    /**
+     * Per-subject stats keyed male/female/overall for one period (bands in
+     * ResultAnalysis). The bands are percentages (fail below 40, mastery from
+     * 80), so each mark is read against its own assessment's maximum: 18 out
+     * of 25 is 72%, a pass, not a fail at "18".
+     */
     private function analysisData(Offering $offering, $exams, $subjects)
     {
         $scoreMap = $this->examScores($exams);
@@ -519,9 +527,30 @@ class TermResultController extends Controller
         return $this->analysis->bands($this->students($offering), $subjects, function ($subj, $st) use ($exams, $scoreMap) {
             $exam = $exams[$subj->id] ?? null;
             $entry = $exam ? ($scoreMap[$exam->id][$st->id] ?? null) : null;
+            if (! $entry || $entry['absent']) {
+                return null;
+            }
+            $max = (int) $exam->max_score;
 
-            return ($entry && ! $entry['absent']) ? $entry['score'] : null;
+            return $max > 0 ? $entry['score'] / $max * 100 : $entry['score'];
         });
+    }
+
+    /**
+     * The raw mark below which a pupil fails, per subject id: the pass mark is a
+     * percentage, the sheet shows raw marks, so a column out of 50 fails below
+     * 20. Empty when fail-marking does not apply (see {@see passMarkFor()}).
+     */
+    private function failBelow($exams): array
+    {
+        $passMark = $this->passMarkFor();
+        if ($passMark === null) {
+            return [];
+        }
+
+        return collect($exams)->mapWithKeys(fn ($exam) => [
+            $exam->subject_id => $passMark * ((int) $exam->max_score ?: 100) / 100,
+        ])->all();
     }
 
     private function examScores($exams): array
