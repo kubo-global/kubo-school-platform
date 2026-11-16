@@ -80,9 +80,17 @@ class AssessmentController extends Controller
             ? ($type->name === 'Exam' ? ['Exam'] : ['Test 1', 'Test 2'])
             : null;
 
+        // The maximum the form starts from. A tests-mode school scores every test
+        // out of 25 and every exam out of 75 (the scale the term grid uses), so a
+        // new slot starts there instead of at 100.
+        $defaultMax = $slots
+            ? ($type->name === 'Exam' ? 75 : 25)
+            : ($type->default_max_score ?? 100);
+
         return view('pages.assessment.create', [
             'type' => $type,
             'slots' => $slots,
+            'defaultMax' => $defaultMax,
             'offerings' => $offerings,
             'terms' => $terms,
             'subjects' => $subjects,

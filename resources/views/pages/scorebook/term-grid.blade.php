@@ -241,7 +241,7 @@
                         <div class="text-center text-gray-400">{{ $isAbsent ? 'abs' : ($val === '' ? '—' : $val) }}</div>
                       @else
                       <div class="flex items-center justify-center gap-2">
-                        <input type="number" inputmode="numeric" min="0" max="{{ ($columnMeta[$s->id]['max'] ?? 100) }}"
+                        <input type="number" inputmode="numeric" min="0" max="{{ ($columnMeta[$s->id]['max'] ?? ($defaultMax ?? 100)) }}"
                           name="scores[{{ $s->id }}][{{ $st->id }}]" value="{{ $val }}"
                           data-r="{{ $i }}" data-c="{{ $loop->index }}" @focus="$event.target.select()"
                           x-bind:disabled="absent" :class="absent && 'opacity-40 bg-gray-100'"
@@ -351,14 +351,21 @@
     })();
 
     // Demo helper: fill every non-absent cell with a plausible spread of marks
-    // (fails, passes and a few mastery) so the results are worth showing.
+    // (fails, passes and a few mastery) so the results are worth showing. The
+    // pool is in percent and each mark is scaled to its own column's maximum
+    // (25 for a test, 75 for an exam, or what the teacher set), so the example
+    // never exceeds what the column accepts. Only mark cells are filled, never
+    // the "out of" fields.
     function fillExampleMarks() {
       var pool = [92, 85, 78, 70, 66, 60, 55, 50, 45, 40, 35, 28, 63, 48, 73, 58, 22, 88];
-      document.querySelectorAll('form[method="POST"] input[type=number]').forEach(function (el, i) {
-        if (!el.disabled) {
-          el.value = pool[(i * 5 + 3) % pool.length];
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+      var form = document.querySelector('form[method="POST"]');
+      form.querySelectorAll('input[type=number][name^="scores["]').forEach(function (el, i) {
+        if (el.disabled) return;
+        var subject = el.name.slice(7, el.name.indexOf(']'));
+        var typed = form.querySelector('input[name="max[' + subject + ']"]');
+        var max = Number(typed && typed.value) || Number(el.max) || 100;
+        el.value = Math.round(pool[(i * 5 + 3) % pool.length] / 100 * max);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
       });
     }
   </script>

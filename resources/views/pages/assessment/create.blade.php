@@ -76,7 +76,7 @@
 
         <div class="col-span-4 sm:col-span-1">
           <label for="max_score" class="block text-sm font-medium text-gray-700">Maximum score</label>
-          <input required type="number" min="1" name="max_score" id="max_score" value="{{ old('max_score', $type->default_max_score ?? 100) }}"
+          <input required type="number" min="1" name="max_score" id="max_score" value="{{ old('max_score', $defaultMax) }}"
             class="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-900 focus:border-gray-900 sm:text-sm">
         </div>
 
