@@ -86,8 +86,16 @@ class TermResultController extends Controller
 
         // Each pupil's running TERM total (the report figure), shown next to the
         // name while entering so the teacher sees the effect of saved marks.
+        // A pupil without a single subject term mark yet (a subject needs its tests
+        // and its exam) has no total to show: null, so the grid prints a dash and
+        // not a misleading 0.
         $termTotals = $period['term']
-            ? (new \App\Domain\Reporting\Services\PositionService)->rank($offering, $period['term'], $school)->keyBy('student_id')
+            ? (new \App\Domain\Reporting\Services\PositionService)->rankedReports($offering, $period['term'], $school)
+                ->map(fn ($r) => [
+                    'student_id' => $r['student_id'],
+                    'total' => collect($r['report']['results']['subjectResults'] ?? [])->contains(fn ($sr) => $sr['hasScores'] ?? false)
+                        ? $r['total'] : null,
+                ])->keyBy('student_id')
             : collect();
 
         $defaultMax = $this->defaultMaxFor($period);
@@ -426,9 +434,15 @@ class TermResultController extends Controller
             ];
         })->values();
 
+        // A subject's term mark needs its tests and its exam. While a term is still
+        // running no subject has one, and ranking every pupil first on a total of
+        // 0 would read as a result; the page says what is missing instead.
+        $hasTermMarks = $rows->contains(fn ($r) => $r['marks']->contains(fn ($m) => $m !== null));
+
         return view('pages.scorebook.term-overview', [
             'offering' => $offering, 'school' => $school, 'terms' => $terms,
             'term' => $term, 'subjects' => $subjects, 'rows' => $rows,
+            'hasTermMarks' => $hasTermMarks,
             'teacher' => $offering->principal->first(),
             'gradeNum' => (int) preg_replace('/\D/', '', $offering->grade->name ?? ''),
             'passMark' => $this->passMarkFor(),

@@ -65,6 +65,13 @@ class DemoSeeder extends Seeder
     private array $nurserySubjects = ['Phonics', 'Reading', 'Numeracy', 'Health', 'Physical Education', 'Art and craft'];
     private array $primarySubjects = ['English language', 'Mathematics', 'Integrated studies', 'Science', 'Social & Environmental Studies', 'French', 'Religious Knowledge', 'Physical Education'];
 
+    /**
+     * Mark-added subjects the Swallow sheet adds to every grade class (see
+     * SwallowConfigSeeder, which runs after the scores are seeded). They get
+     * marks like the rest, or their columns stay empty on every result sheet.
+     */
+    private array $sheetSubjects = ['Phonics', 'Spelling and Dictation', 'Verbal Aptitude'];
+
     /** Which subjects each NAT grade sits. */
     private array $natSubjects = [
         'Grade 3' => ['English language', 'Mathematics', 'Integrated studies'],
@@ -136,7 +143,8 @@ class DemoSeeder extends Seeder
                     }
                     $students = $this->makeStudents($offering, mt_rand(16, 24));
                     $this->linkSubjects($offering, $subjects, $terms);
-                    $this->makeScores($offering, $subjects, $terms, $students, $isCurrent, $endY);
+                    $scored = $isNursery ? $subjects : array_merge($subjects, $this->sheetSubjects);
+                    $this->makeScores($offering, $scored, $terms, $students, $isCurrent, $endY);
 
                     if (isset($this->natSubjects[$gradeName])) {
                         $this->makeNatScores($offering, $gradeName, $students, $endY);
@@ -219,7 +227,7 @@ class DemoSeeder extends Seeder
 
     private function ensureSubjects(): void
     {
-        $all = array_unique(array_merge($this->nurserySubjects, $this->primarySubjects));
+        $all = array_unique(array_merge($this->nurserySubjects, $this->primarySubjects, $this->sheetSubjects));
         foreach ($all as $name) {
             $this->subjectIds[$name] = Subject::firstOrCreate(
                 ['school_id' => $this->school->id, 'name' => $name]
