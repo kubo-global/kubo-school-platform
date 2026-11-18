@@ -443,6 +443,9 @@ class TermResultController extends Controller
             'offering' => $offering, 'school' => $school, 'terms' => $terms,
             'term' => $term, 'subjects' => $subjects, 'rows' => $rows,
             'hasTermMarks' => $hasTermMarks,
+            // Pupils without a mark are left out of the ranking, so an empty ranking
+            // does not mean an empty class: the page needs the enrolment count too.
+            'studentCount' => $this->students($offering)->count(),
             'teacher' => $offering->principal->first(),
             'gradeNum' => (int) preg_replace('/\D/', '', $offering->grade->name ?? ''),
             'passMark' => $this->passMarkFor(),

@@ -127,6 +127,29 @@ class ScorebookByTermTest extends TestCase
     }
 
     #[Test]
+    public function a_class_with_pupils_but_no_marks_is_not_called_empty(): void
+    {
+        // A fresh school year: pupils enrolled, nothing entered yet.
+        School::first() ?? School::factory()->create();
+        $offering = Offering::factory()->create(['schoolyear_id' => $this->schoolyear->id, 'grade_id' => Grade::factory()->create(['name' => 'Grade 3'])->id]);
+        $maths = Subject::factory()->create(['name' => 'Mathematics', 'counts_toward_total' => true]);
+        $offering->subjects($this->term->id)->save($maths, ['term_id' => $this->term->id]);
+        $params = ['offering' => $offering, 'term' => $this->term->id];
+
+        $this->actingAs($this->headmaster)->get(route('term-grid.overview', $params))
+            ->assertOk()
+            ->assertSee('No pupils are enrolled in this class yet.');
+
+        Enrollment::factory()->create(['user_id' => Student::factory()->create()->id, 'offering_id' => $offering->id]);
+        Enrollment::factory()->create(['user_id' => Student::factory()->create()->id, 'offering_id' => $offering->id]);
+
+        $this->actingAs($this->headmaster)->get(route('term-grid.overview', $params))
+            ->assertOk()
+            ->assertDontSee('No pupils are enrolled')
+            ->assertSee('No marks entered for '.$this->term->name.' yet. 2 pupils are enrolled in this class.');
+    }
+
+    #[Test]
     public function a_pupil_with_no_marks_does_not_sit_and_is_left_out_of_the_ranking_and_count(): void
     {
         ['offering' => $offering, 'school' => $school, 'maths' => $maths] = $this->scoredClass();
