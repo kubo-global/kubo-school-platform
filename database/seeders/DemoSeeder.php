@@ -72,6 +72,13 @@ class DemoSeeder extends Seeder
      */
     private array $sheetSubjects = ['Phonics', 'Spelling and Dictation', 'Verbal Aptitude'];
 
+    /**
+     * The role picker's Teacher leads the first class of this grade. Grade 1,
+     * because SwallowExercisesSeeder gives that class its Learn progress, so the
+     * persona's Progress page has something to show.
+     */
+    private const DEMO_TEACHER_GRADE = 'Grade 1';
+
     /** Which subjects each NAT grade sits. */
     private array $natSubjects = [
         'Grade 3' => ['English language', 'Mathematics', 'Integrated studies'],
@@ -138,7 +145,7 @@ class DemoSeeder extends Seeder
                         ['activated' => 1]
                     );
                     $this->attachTeachers($offering, $subjects);
-                    if ($isCurrent && in_array($gradeName, ['Grade 1', 'Grade 4'], true) && $section === $sections[0]) {
+                    if ($isCurrent && $gradeName === self::DEMO_TEACHER_GRADE && $section === $sections[0]) {
                         $this->makeDemoTeacherPrincipal($offering);
                     }
                     $students = $this->makeStudents($offering, mt_rand(16, 24));
@@ -552,8 +559,8 @@ class DemoSeeder extends Seeder
         $this->caregiverId = $this->person('Fatoumata', 'Danso', 'caregiver', 'caregiver@demo.kubo.global')->id;
         $this->person('Alieu', 'Gaye', 'assistant_coordinator', 'coordinator@demo.kubo.global');
         // The role picker's Teacher: created BEFORE the pool (the picker takes the
-        // lowest-id teacher) and made class teacher of Grade 1 and Grade 4 below —
-        // a grade teacher entering real term marks, the flow schools actually run.
+        // lowest-id teacher) and made class teacher of one grade class below: a
+        // grade teacher entering real term marks, the flow schools actually run.
         $this->demoTeacherId = $this->person('Penda', 'Fofana', 'teacher', 'teacher@demo.kubo.global')->id;
 
         for ($i = 0; $i < 16; $i++) {
@@ -619,8 +626,9 @@ class DemoSeeder extends Seeder
     /**
      * The role picker's Teacher leads this class: demote the randomly drawn
      * principal and put the persona in charge, so a visitor stepping into
-     * "Teacher" gets real grade classes (Grade 1 + Grade 4) to enter marks for —
-     * the same flow a school's class teacher runs at report time.
+     * "Teacher" gets a real grade class to enter marks for, the same flow a
+     * school's class teacher runs at report time. One class, as a class teacher
+     * has; the other classes are there for the headmaster and the admin.
      */
     private function makeDemoTeacherPrincipal(Offering $offering): void
     {
