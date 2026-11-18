@@ -49,6 +49,10 @@
       <p class="text-sm text-gray-500">No subjects are set up for this class. Add them in Settings.</p>
     @elseif ($rows->isEmpty())
       <p class="text-sm text-gray-500">No pupils are enrolled in this class yet.</p>
+    @elseif (! $hasTermMarks)
+      {{-- Marks exist but no subject has both a test and an exam yet. The rule is the same for
+           months-mode schools (a test or an exam per month) and tests-mode schools (Test 1, Test 2, Exam). --}}
+      <p class="text-sm text-gray-600">No term marks for {{ $term->name }} yet. A subject gets its term mark once it has at least one test and one exam. The marks entered so far are under <a href="{{ route('term-grid.report', ['offering' => $offering, 'term' => $term->id]) }}" class="text-indigo-600 hover:underline">{{ $byLabel }}</a>.</p>
     @else
       @if ($analysis)
         <div class="border-b border-gray-200 mb-5">

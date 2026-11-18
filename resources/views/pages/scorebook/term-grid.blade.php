@@ -227,7 +227,7 @@
                   <td class="sticky left-0 z-10 px-3 py-2 font-medium text-gray-800 whitespace-nowrap {{ $i % 2 ? 'bg-indigo-50' : 'bg-white' }}">
                     {{ $st->first_name }} {{ $st->last_name }}
                   </td>
-                  <td class="px-3 py-2.5 text-center text-gray-500 border-l border-gray-100">{{ isset($termTotals[$st->id]) ? (int) round($termTotals[$st->id]['total']) : '—' }}</td>
+                  <td class="px-3 py-2.5 text-center text-gray-500 border-l border-gray-100">{{ isset($termTotals[$st->id]['total']) ? (int) round($termTotals[$st->id]['total']) : '—' }}</td>
                   @foreach ($subjects as $s)
                     @php
                       $entry = $existing[$s->id][$st->id] ?? null;

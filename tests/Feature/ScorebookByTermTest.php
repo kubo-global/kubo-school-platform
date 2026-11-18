@@ -30,7 +30,7 @@ class ScorebookByTermTest extends TestCase
     {
         $school = School::first() ?? School::factory()->create();
         $test = AssessmentType::factory()->test()->create(['school_id' => $school->id]);
-        AssessmentType::factory()->exam()->create(['school_id' => $school->id]);
+        $exam = AssessmentType::factory()->exam()->create(['school_id' => $school->id]);
 
         $offering = Offering::factory()->create(['schoolyear_id' => $this->schoolyear->id, 'grade_id' => Grade::factory()->create(['name' => 'Grade 4'])->id]);
         $maths = Subject::factory()->create(['name' => 'Mathematics', 'counts_toward_total' => true]);
@@ -47,19 +47,56 @@ class ScorebookByTermTest extends TestCase
         AssessmentScore::factory()->create(['user_id' => $top->id, 'assessment_id' => $mathsA->id, 'score' => 90]);
         AssessmentScore::factory()->create(['user_id' => $low->id, 'assessment_id' => $mathsA->id, 'score' => 40]);
 
-        return compact('offering', 'maths', 'arts', 'top', 'low', 'school');
+        return compact('offering', 'maths', 'arts', 'top', 'low', 'school', 'exam', 'mathsA');
+    }
+
+    /** The Maths exam on top of the test, so Maths carries a term mark. */
+    private function sitTheExam(array $c): void
+    {
+        $examA = Assessment::factory()->create(['assessment_type_id' => $c['exam']->id, 'offering_id' => $c['offering']->id, 'term_id' => $this->term->id, 'subject_id' => $c['maths']->id, 'max_score' => 100]);
+        AssessmentScore::factory()->create(['user_id' => $c['top']->id, 'assessment_id' => $examA->id, 'score' => 80]);
+        AssessmentScore::factory()->create(['user_id' => $c['low']->id, 'assessment_id' => $examA->id, 'score' => 50]);
     }
 
     #[Test]
     public function the_by_term_view_ranks_pupils_and_shows_the_toggle(): void
     {
+        $c = $this->scoredClass();
+        $this->sitTheExam($c);
+
+        $this->actingAs($this->headmaster)
+            ->get(route('term-grid.overview', ['offering' => $c['offering'], 'term' => $this->term->id]))
+            ->assertOk()
+            ->assertSee('By term')
+            ->assertDontSee('No term marks for')
+            ->assertSeeInOrder(['Top Pupil', 'Low Pupil']); // higher term total ranked first
+    }
+
+    #[Test]
+    public function a_term_without_an_exam_says_so_instead_of_ranking_everyone_on_zero(): void
+    {
+        // Tests only: no subject has a term mark yet (it needs the exam too).
         ['offering' => $offering] = $this->scoredClass();
 
         $this->actingAs($this->headmaster)
             ->get(route('term-grid.overview', ['offering' => $offering, 'term' => $this->term->id]))
             ->assertOk()
-            ->assertSee('By term')
-            ->assertSeeInOrder(['Top Pupil', 'Low Pupil']); // higher term total ranked first
+            ->assertSee('No term marks for '.$this->term->name.' yet')
+            ->assertDontSee('Top Pupil');
+    }
+
+    #[Test]
+    public function the_entry_grid_shows_no_term_total_until_a_subject_has_one(): void
+    {
+        $c = $this->scoredClass();
+        $params = ['offering' => $c['offering'], 'term' => $this->term->id, 'edit' => 1];
+
+        $totals = $this->actingAs($this->headmaster)->get(route('term-grid.edit', $params))->assertOk()->viewData('termTotals');
+        $this->assertNull($totals[$c['top']->id]['total']);
+
+        $this->sitTheExam($c);
+        $totals = $this->actingAs($this->headmaster)->get(route('term-grid.edit', $params))->assertOk()->viewData('termTotals');
+        $this->assertNotNull($totals[$c['top']->id]['total']);
     }
 
     #[Test]
