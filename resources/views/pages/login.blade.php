@@ -85,7 +85,16 @@
                     <label for="password" class="block mb-1.5 text-sm font-medium text-white/90">Password</label>
                     <input name="password" id="password" type="password" required
                         class="w-full px-3.5 py-2.5 text-white border rounded-lg appearance-none bg-white/10 border-white/25 placeholder-white/60 backdrop-blur-sm focus:outline-none focus:bg-white/20 focus:border-white/60 focus:ring-2 focus:ring-white/40 transition">
+                    {{-- A school has no mail to send a reset link through: whoever
+                         manages the staff accounts resets it, so say who to ask. --}}
+                    <p class="mt-1.5 text-sm text-white/70">Forgot it? The headmaster can reset it for you.</p>
                 </div>
+                {{-- Off by default: many staff share one computer in the staff room,
+                     and a remembered session there would open for the next person. --}}
+                <label class="flex items-start gap-2 text-sm cursor-pointer text-white/90">
+                    <input type="checkbox" name="remember" value="1" class="mt-0.5 rounded">
+                    <span>Stay signed in <span class="text-white/70">(only on a device nobody else uses)</span></span>
+                </label>
                 <button type="submit"
                     class="flex justify-center w-full px-4 py-2.5 text-sm font-semibold text-indigo-700 transition bg-white rounded-lg shadow-lg hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-white/70">
                     Log in
