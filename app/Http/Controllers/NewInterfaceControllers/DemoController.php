@@ -3,9 +3,15 @@
 namespace App\Http\Controllers\NewInterfaceControllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Assessment;
+use App\Models\Offering;
+use App\Models\Schoolyear;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * The public demo signs visitors in without a password, but not as one fixed
@@ -16,34 +22,17 @@ use Illuminate\Support\Facades\Auth;
 class DemoController extends Controller
 {
     /**
-     * The roles worth showing, in the order a visitor should meet them, with
-     * what each one is actually allowed to do.
+     * The roles worth showing, in the order the picker and the demo bar offer
+     * them. Stepping in lands on the screen where that role's work happens (see
+     * landingFor()).
      */
     public const ROLES = [
-        'headmaster' => [
-            'label' => 'Headmaster',
-            'blurb' => 'The whole school: every class, term reports, the National Assessment Test, health, backups.',
-        ],
-        'teacher' => [
-            'label' => 'Teacher',
-            'blurb' => 'Their own classes: enter scores for the subjects they teach, take the register, write lesson plans.',
-        ],
-        'assistant_coordinator' => [
-            'label' => 'Assistant coordinator',
-            'blurb' => 'Academic oversight: sign off lesson plans, follow the timetable and instructional hours.',
-        ],
-        'caregiver' => [
-            'label' => 'Caregiver',
-            'blurb' => 'The health desk: who needs follow-up, growth charts, checkups, incidents and wound care.',
-        ],
-        'admin' => [
-            'label' => 'Administrator',
-            'blurb' => 'Staff accounts, roles and permissions, school settings and the school-year rollover.',
-        ],
-        'student' => [
-            'label' => 'Pupil',
-            'blurb' => 'What a child sees: their own skills and the offline library.',
-        ],
+        'headmaster' => ['label' => 'Headmaster'],
+        'teacher' => ['label' => 'Teacher'],
+        'caregiver' => ['label' => 'Caregiver'],
+        'assistant_coordinator' => ['label' => 'Assistant coordinator'],
+        'admin' => ['label' => 'Administrator'],
+        'student' => ['label' => 'Pupil'],
     ];
 
     /**
@@ -82,7 +71,59 @@ class DemoController extends Controller
             $request->session()->regenerateToken();
         }
 
-        return view('pages.demo.login', ['people' => self::availableRoles()]);
+        // A first-time visitor has never seen the product, so the two ways in
+        // (staff, pupil) are shown as the screens behind them, drawn from the
+        // data they are about to walk into: one class's results sheet and the
+        // same class's name list on the pupil sign-in.
+        $year = Schoolyear::orderByDesc('id')->first();
+        $classes = ! $year ? collect() : Offering::with('grade')
+            ->withCount('enrollments')
+            ->where('schoolyear_id', $year->id)
+            ->get();
+
+        $people = self::availableRoles();
+        $teacher = $people['teacher'] ?? null;
+        $shown = ($teacher ? $this->classOf($teacher) : null)
+            ?? $classes->firstWhere('enrollments_count', '>', 0);
+
+        return view('pages.demo.login', [
+            'people' => $people,
+            'classCount' => $classes->count(),
+            'pupilCount' => $classes->sum('enrollments_count'),
+            'shown' => $shown,
+            'sheet' => $shown ? $this->resultsOf($shown) : null,
+            'pupils' => ! $shown ? collect() : $shown->enrollments()->with('student')->get()
+                ->map(fn ($e) => $e->student)->filter()->sortBy('first_name')->take(6)->values(),
+        ]);
+    }
+
+    /**
+     * The class's most recent results sheet, exactly as the Results page shows
+     * it: the data comes from that page's own action, so the picture on the
+     * picker cannot drift from the screen behind it. Null when the class has no
+     * marks yet.
+     */
+    private function resultsOf(Offering $class): ?array
+    {
+        $latest = Assessment::where('offering_id', $class->id)->whereNotNull('date')->orderByDesc('date')->first();
+        if (! $latest) {
+            return null;
+        }
+
+        try {
+            $data = app(TermResultController::class)->report(new Request([
+                'term' => $latest->term_id,
+                'month' => Carbon::parse($latest->date)->format('Y-m'),
+            ]), $class)->getData();
+        } catch (HttpException) {
+            return null;
+        }
+
+        return $data['hasMarks'] ? [
+            'period' => $data['period']['term']->name.' · '.$data['period']['label'],
+            'subjects' => $data['displaySubjects']->take(5),
+            'rows' => array_slice($data['rows'], 0, 7),
+        ] : null;
     }
 
     /** Sign in as this role's demo account. Also used to switch role mid-visit. */
@@ -119,7 +160,41 @@ class DemoController extends Controller
 
         // No flash: the demo bar already says who you are, and an app-level
         // "you are now signed in" reads like a notification the school would get.
-        return redirect()->route('home');
+        return redirect()->to($this->landingFor($role, $user));
+    }
+
+    /**
+     * Where a role lands: the screen where its work happens. The
+     * dashboard is that screen for the headmaster and the administrator; for a
+     * caregiver or a coordinator it is an empty page, so they go to their own
+     * desk, and the teacher goes straight to the class they enter marks for.
+     */
+    private function landingFor(string $role, User $user): string
+    {
+        if ($role === 'teacher') {
+            $class = $this->classOf($user);
+
+            return $class ? route('scorebook.class', $class) : route('home');
+        }
+
+        return match ($role) {
+            'caregiver' => route('health.index'),
+            'assistant_coordinator' => route('lesson-plans.index'),
+            default => route('home'),
+        };
+    }
+
+    /** The teacher's class in the current school year, if they have one. */
+    private function classOf(User $teacher): ?Offering
+    {
+        $year = Schoolyear::orderByDesc('id')->first();
+
+        return $year
+            ? Offering::where('schoolyear_id', $year->id)
+                ->whereIn('id', DB::table('teacher_offering')->where('user_id', $teacher->id)->select('offering_id'))
+                ->orderBy('id')
+                ->first()
+            : null;
     }
 
     /**

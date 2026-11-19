@@ -44,7 +44,8 @@
          so a page with little on it (an empty lesson-plan list) left the canvas
          colour stopping halfway down and white underneath. --}}
     <div class="flex flex-col bg-white min-h-screen sm:h-screen" x-data="{ sidebarOpen: $persist(true).as('kubo-sidebar') }" x-init="$nextTick(() => document.documentElement.classList.remove('kubo-preinit', 'kubo-sb-closed'))">
-        @if (config('app.demo'))
+        {{-- Not on the picker: that page is the demo's own front door. --}}
+        @if (config('app.demo') && ! request()->routeIs('demo.picker'))
         @php
             $demoRoles = \App\Http\Controllers\NewInterfaceControllers\DemoController::availableRoles();
             $demoRoleMeta = \App\Http\Controllers\NewInterfaceControllers\DemoController::ROLES;
