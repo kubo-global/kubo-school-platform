@@ -33,45 +33,43 @@
       margin-top: 44px; font-weight: 900; line-height: 1.04; letter-spacing: -.03em;
       font-size: clamp(2rem, 4.1vw, 3.05rem); text-wrap: balance;
     }
-    .door-page h1 em { font-style: normal; color: var(--yellow); }
     .door-page .lead { margin-top: 14px; font-size: 1.15rem; line-height: 1.45; color: var(--soft); text-wrap: balance; }
 
-    .door-page .doors { display: grid; gap: 40px 28px; margin-top: 36px; align-items: start; }
-    @media (min-width: 900px) { .door-page .doors { grid-template-columns: 1.55fr 1fr; } }
+    .door-page .doors { display: grid; gap: 48px 56px; margin-top: 56px; align-items: start; }
+    @media (min-width: 900px) { .door-page .doors { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); } }
     .door-page .doors > section { min-width: 0; }
     .door-page h2 { font-weight: 700; font-size: 1.1rem; }
-    .door-page .sub { margin-top: 4px; font-size: .95rem; color: var(--muted); }
 
     /* A door shows the screen behind it. The screen is a picture of the page, so
        it is cut off by the frame and fades out instead of ending on a hard edge. */
     .door-page .shot {
-      display: block; width: 100%; height: 370px; margin-top: 16px; position: relative; overflow: hidden;
+      display: block; width: 100%; height: 264px; margin-top: 14px; position: relative; overflow: hidden;
       border-radius: 12px; text-align: left; cursor: pointer;
-      box-shadow: 0 0 0 1px rgba(255, 255, 255, .14), 0 30px 60px rgba(0, 0, 0, .45);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, .12), 0 20px 40px rgba(0, 0, 0, .35);
       transition: transform .15s ease;
     }
     .door-page .shot:hover { transform: translateY(-2px); }
     .door-page .shot::after { content: ""; position: absolute; inset: 0; pointer-events: none; }
+    .door-page .shot > .zoom { display: block; zoom: .66; }
+    .door-page .names > .zoom { zoom: .8; }
 
-    .door-page .sheet { background: #f9fafb; color: #111827; padding: 22px 0 0 22px; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-    .door-page .sheet::after { background: linear-gradient(90deg, transparent 86%, #f9fafb 99%), linear-gradient(180deg, transparent 84%, #f9fafb 99%); }
-    .door-page .sheet .title { font-size: 1.25rem; font-weight: 700; }
-    .door-page .sheet .period { font-size: .875rem; color: #6b7280; }
-    .door-page .sheet table { margin-top: 20px; font-size: .875rem; border-collapse: collapse; background: #fff; border: 1px solid #e5e7eb; }
-    .door-page .sheet th { padding: 12px 8px; font-size: .75rem; font-weight: 600; text-transform: uppercase; color: #6b7280; background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
-    .door-page .sheet td { padding: 6px 8px; text-align: center; white-space: nowrap; color: #1f2937; }
-    .door-page .sheet tr:nth-child(even) td { background: #f7f8fe; }
-    .door-page .sheet .name { padding-inline: 12px 36px; text-align: left; font-weight: 500; }
+    .door-page .sheet { background: #e9ebf3; color: #1f2937; padding: 22px 26px 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    .door-page .sheet::after { background: linear-gradient(90deg, transparent 90%, #e9ebf3 99%), linear-gradient(180deg, transparent 72%, #e9ebf3 98%); }
+    .door-page .sheet .title { font-size: 1.05rem; font-weight: 600; }
+    .door-page .sheet .period { font-size: .8rem; color: #6b7280; }
+    .door-page .sheet table { width: 100%; margin-top: 16px; font-size: .9rem; border-collapse: collapse; }
+    .door-page .sheet th { padding: 0 10px 10px; font-size: .8rem; font-weight: 500; white-space: nowrap; color: #6b7280; border-bottom: 1px solid #cfd3df; }
+    .door-page .sheet td { padding: 12px 10px; border-bottom: 1px solid #dcdfe8; text-align: center; white-space: nowrap; color: #4b5563; }
+    .door-page .sheet .name { width: 40%; text-align: left; color: #1f2937; }
     .door-page .sheet .no { color: #6b7280; }
-    .door-page .sheet .edge { border-left: 1px solid #e5e7eb; }
-    .door-page .sheet .strong { font-weight: 700; color: #111827; }
+    .door-page .sheet .strong { font-weight: 600; color: #1f2937; }
 
-    .door-page .names { background: radial-gradient(500px 300px at 10% 0%, #2b3270 0%, #0f1030 70%); padding: 24px 24px 0; text-align: center; }
-    .door-page .names::after { background: linear-gradient(180deg, transparent 84%, #0f1030 99%); }
-    .door-page .names .title { font-size: 1.35rem; font-weight: 800; letter-spacing: -.01em; }
-    .door-page .names .hint { margin-top: 2px; font-size: .8rem; color: #e0e7ff; }
-    .door-page .names ul { margin: 16px auto 0; max-width: 19rem; padding: 14px; border-radius: 16px 16px 0 0; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .25); display: grid; gap: 8px; }
-    .door-page .names li { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 10px; background: #fff; color: #312e81; font-size: .9rem; font-weight: 600; text-align: left; }
+    .door-page .names { background: radial-gradient(500px 300px at 10% 0%, #2b3270 0%, #0f1030 70%); padding: 22px 26px 0; text-align: center; }
+    .door-page .names::after { background: linear-gradient(180deg, transparent 72%, #0f1030 98%); }
+    .door-page .names .title { font-size: 1.05rem; font-weight: 600; }
+    .door-page .names .hint { margin-top: 2px; font-size: .8rem; color: #b9b4cc; }
+    .door-page .names ul { margin: 16px auto 0; max-width: 20rem; display: grid; gap: 10px; }
+    .door-page .names li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: #e9ebf3; color: #312e81; font-size: .9rem; font-weight: 500; text-align: left; }
 
     .door-page .row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; margin-top: 18px; }
     .door-page .cta {
@@ -79,19 +77,19 @@
       font-weight: 700; font-size: 1.05rem; color: var(--night); background: var(--yellow);
       transition: filter .15s ease, transform .15s ease;
     }
-    .door-page .cta.ghost { color: #fff; background: transparent; box-shadow: inset 0 0 0 2px #fff; }
+    .door-page .cta.ghost { color: #fff; background: transparent; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .55); }
     .door-page .cta:hover { filter: brightness(.95); transform: translateY(-1px); }
     .door-page .cta.ghost:hover { background: rgba(255, 255, 255, .1); filter: none; }
     .door-page .others { margin-top: 18px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; font-size: .95rem; color: var(--muted); }
     .door-page .others button, .door-page .foot a {
-      color: #fff; font-weight: 600; cursor: pointer;
-      text-decoration: underline; text-decoration-color: rgba(255, 255, 255, .45); text-underline-offset: 5px;
+      color: var(--soft); font-weight: 500; cursor: pointer;
+      text-decoration: underline; text-decoration-color: rgba(255, 255, 255, .3); text-underline-offset: 5px;
     }
-    .door-page .others button:hover, .door-page .foot a:hover { text-decoration-color: var(--yellow); }
+    .door-page .others button:hover, .door-page .foot a:hover { color: #fff; text-decoration-color: #fff; }
     .door-page :is(.cta, .shot, .others button, .foot a):focus-visible { outline: 2px solid var(--yellow); outline-offset: 3px; }
 
-    .door-page .foot { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 56px; font-size: .9rem; color: var(--muted); }
-    .door-page .foot a { font-weight: 500; }
+    .door-page .foot { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 56px; font-size: .85rem; color: var(--muted); }
+    .door-page .foot a { color: var(--muted); }
     @media (prefers-reduced-motion: reduce) { .door-page .shot, .door-page .cta { transition: none; } }
   </style>
 
@@ -111,7 +109,7 @@
         KUBO
       </span>
 
-      <h1>Get <em>hands-on</em> with the KUBO School Platform.</h1>
+      <h1>Get hands-on with the KUBO School Platform.</h1>
       <p class="lead">
         @if ($classCount)
           A demo school with {{ $classCount }} classes and {{ $pupilCount }} pupils. Change anything you like.
@@ -124,24 +122,24 @@
         @if ($first)
           <section>
             <h2>Run the school</h2>
-            <p class="sub">Marks, positions, report books, health records</p>
 
             <form method="POST" action="{{ route('demo.login', $first) }}">
               @csrf
               @if ($sheet)
                 {{-- The same table as Scorebook > Results, without the page around it. --}}
                 <button type="submit" class="shot sheet" tabindex="-1" aria-hidden="true">
+                  <span class="zoom">
                   <span class="block title">Results</span>
                   <span class="block period">{{ $shown->displayName() }} &middot; {{ $sheet['period'] }}</span>
                   <table>
                     <thead>
                       <tr>
-                        <th>No</th>
+                        <th>No.</th>
                         <th class="name">Name</th>
-                        <th class="edge">Total</th>
-                        <th>Ave</th>
-                        <th>Pos</th>
-                        @foreach ($sheet['subjects'] as $subject)<th class="edge">{{ $subject->name }}</th>@endforeach
+                        <th>Total</th>
+                        <th>Average</th>
+                        <th>Position</th>
+                        @foreach ($sheet['subjects'] as $subject)<th>{{ ucfirst(strtolower($subject->name)) }}</th>@endforeach
                       </tr>
                     </thead>
                     <tbody>
@@ -149,17 +147,18 @@
                         <tr>
                           <td class="no">{{ $i + 1 }}</td>
                           <td class="name">{{ $r['student']->first_name }} {{ $r['student']->last_name }}</td>
-                          <td class="edge strong">{{ (int) round($r['total']) }}</td>
+                          <td class="strong">{{ (int) round($r['total']) }}</td>
                           <td>{{ $r['average'] }}</td>
                           <td class="strong">{{ $r['positionLabel'] }}</td>
                           @foreach ($sheet['subjects'] as $subject)
                             @php $mark = $r['marks'][$subject->id] ?? null; @endphp
-                            <td class="edge">{{ $mark === null ? '' : (int) round($mark) }}</td>
+                            <td>{{ $mark === null ? '' : (int) round($mark) }}</td>
                           @endforeach
                         </tr>
                       @endforeach
                     </tbody>
                   </table>
+                  </span>
                 </button>
               @endif
               <div class="row">
@@ -173,7 +172,7 @@
                 @continue($role === $first || $role === 'student')
                 <form method="POST" action="{{ route('demo.login', $role) }}">
                   @csrf
-                  <button type="submit">{{ $roles[$role]['label'] }}</button>
+                  <button type="submit">{{ strtolower($roles[$role]['label']) }}</button>
                 </form>
               @endforeach
             </div>
@@ -185,10 +184,10 @@
              we're showing, so this door walks into it. --}}
         <section>
           <h2>Learn in it</h2>
-          <p class="sub">Pupils pick their class and their name</p>
 
           @if ($pupils->isNotEmpty())
             <a href="{{ $pupilDoor }}" class="shot names" tabindex="-1" aria-hidden="true">
+              <span class="zoom">
               <span class="block title">{{ $shown->displayName() }}</span>
               <span class="block hint">Find your name and type it to log in</span>
               <ul>
@@ -199,6 +198,7 @@
                   </li>
                 @endforeach
               </ul>
+              </span>
             </a>
           @endif
           <div class="row">

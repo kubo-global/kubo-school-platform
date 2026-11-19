@@ -93,7 +93,7 @@ class DemoController extends Controller
             'shown' => $shown,
             'sheet' => $shown ? $this->resultsOf($shown) : null,
             'pupils' => ! $shown ? collect() : $shown->enrollments()->with('student')->get()
-                ->map(fn ($e) => $e->student)->filter()->sortBy('first_name')->take(6)->values(),
+                ->map(fn ($e) => $e->student)->filter()->sortBy('first_name')->take(7)->values(),
         ]);
     }
 
@@ -122,7 +122,7 @@ class DemoController extends Controller
         return $data['hasMarks'] ? [
             'period' => $data['period']['term']->name.' · '.$data['period']['label'],
             'subjects' => $data['displaySubjects']->take(5),
-            'rows' => array_slice($data['rows'], 0, 7),
+            'rows' => array_slice($data['rows'], 0, 8),
         ] : null;
     }
 

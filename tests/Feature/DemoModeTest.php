@@ -37,8 +37,8 @@ class DemoModeTest extends TestCase
         $this->get(route('demo.picker'))
             ->assertOk()
             ->assertSee('Open as headmaster')
-            ->assertSee('Teacher')
-            ->assertSee('Caregiver');
+            ->assertSee('teacher')
+            ->assertSee('caregiver');
     }
 
     #[Test]
@@ -241,7 +241,7 @@ class DemoModeTest extends TestCase
         // doors stand all the same, the headmaster first.
         $this->get(route('demo.picker'))
             ->assertOk()
-            ->assertSeeInOrder(['Run the school', 'Open as headmaster', 'or as', 'Teacher', 'Learn in it', 'Sign in as a pupil'])
+            ->assertSeeInOrder(['Run the school', 'Open as headmaster', 'or as', 'teacher', 'Learn in it', 'Sign in as a pupil'])
             ->assertDontSee('Results')
             ->assertDontSee('resets nightly');
     }
@@ -276,7 +276,7 @@ class DemoModeTest extends TestCase
             ->assertSeeInOrder([
                 'Results', $class->displayName(),
                 $top->first_name.' '.$top->last_name,
-                '<td class="edge strong">'.(int) round($rows[0]['total']).'</td>', '1st',
+                '<td class="strong">'.(int) round($rows[0]['total']).'</td>', '1st',
                 'Open as headmaster',
                 // And the pupil door shows the same class's sign-in list.
                 'Find your name', $firstByName->first_name.' '.$firstByName->last_name,
