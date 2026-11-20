@@ -182,7 +182,7 @@ class ScoreEntryHardeningTest extends TestCase
             ->getContent();
 
         // Only mark cells, and each mark as a share of its column's maximum.
-        $this->assertStringContainsString('input[type=number][name^="scores["]', $html);
+        $this->assertStringContainsString("input[type=number][name^='scores[']", $html);
         $this->assertStringContainsString('/ 100 * max', $html);
     }
 
