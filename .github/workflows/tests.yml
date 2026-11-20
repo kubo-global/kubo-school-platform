@@ -51,3 +51,55 @@ jobs:
 
       - name: Run tests
         run: vendor/bin/phpunit
+
+  # The demo school in a real browser: starts its own server and SQLite file
+  # (tests/DemoBrowser/serve.sh), needs no Kolibri and no MySQL.
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, pdo_sqlite, gd, zip
+          coverage: none
+
+      - name: Clone kubo-kolibri sibling (path repo in composer.json)
+        run: git clone --depth 1 https://github.com/kubo-global/kubo-kolibri.git ../kubo-kolibri
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Setup environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser tests
+        run: npm run test:browser
+
+      - name: Keep traces of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-results
+          path: test-results
+          retention-days: 7

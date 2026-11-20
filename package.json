@@ -2,7 +2,8 @@
     "private": true,
     "scripts": {
         "dev": "vite",
-        "build": "vite build"
+        "build": "vite build",
+        "test:browser": "playwright test --config=playwright.demo.config.ts"
     },
     "devDependencies": {
         "@playwright/test": "^1.58.2",
