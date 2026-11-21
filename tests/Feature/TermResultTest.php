@@ -65,6 +65,33 @@ class TermResultTest extends TestCase
     }
 
     #[Test]
+    public function the_grid_never_looks_its_form_up_on_the_page(): void
+    {
+        // On the demo the role switch in the demo bar puts POST forms on the page
+        // ahead of the grid. A script that took "the first POST form" got a role
+        // button, so "Fill example marks" filled nothing and unsaved marks went
+        // unguarded. The grid now acts from inside its own form.
+        config(['app.demo' => true]);
+
+        $html = $this->actingAs($this->head)->get(route('term-grid.edit', $this->params(['edit' => 1])))
+            ->assertOk()
+            ->assertSee('Fill example marks')
+            ->getContent();
+
+        $start = strpos($html, 'action="'.route('term-grid.save', $this->offering).'"');
+        $this->assertNotFalse($start);
+        $this->assertLessThan($start, strpos($html, 'method="POST"'), 'another POST form comes first');
+
+        $form = substr($html, $start, strpos($html, '</form>', $start) - $start);
+        $this->assertStringContainsString('@click="fillExample()"', $form);
+        $this->assertStringContainsString('fillExample() {', $form);
+        $this->assertStringContainsString("addEventListener('beforeunload'", $form);
+
+        $this->assertStringNotContainsString('document.querySelector', $html);
+        $this->assertStringNotContainsString('document.getElementById', $html);
+    }
+
+    #[Test]
     public function saving_a_months_marks_stores_them_and_flags_absentees(): void
     {
         $english = Subject::where('name', 'English language')->firstOrFail();

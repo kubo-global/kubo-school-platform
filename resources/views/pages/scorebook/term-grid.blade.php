@@ -76,19 +76,50 @@
       {{-- Edit mode: the editable grid --}}
       {{-- Marks autosave a moment after each change; the button remains as the
            explicit finish (and the only path without JavaScript). --}}
+      {{-- Everything the grid does lives in this form's own component and reaches
+           the form through $root. Nothing looks the form up on the page: the demo
+           bar and the account menu carry forms of their own. --}}
       <form method="POST" action="{{ route('term-grid.save', $offering) }}"
         x-data="{
-          saving: false, savedAt: null, dirty: false,
+          // dirty: typed since the last autosave started. unsaved: not on the
+          // server yet, which also covers an autosave that failed.
+          saving: false, savedAt: null, dirty: false, unsaved: false,
+          init() {
+            // Warn before leaving the grid only while marks are not saved yet.
+            window.addEventListener('beforeunload', (e) => {
+              if (this.unsaved) { e.preventDefault(); e.returnValue = ''; }
+            });
+          },
           async autosave() {
             if (! this.dirty || this.saving) return;
             this.dirty = false; this.saving = true;
             try {
-              const res = await fetch(this.$el.action, {
-                method: 'POST', body: new FormData(this.$el),
+              const res = await fetch(this.$root.action, {
+                method: 'POST', body: new FormData(this.$root),
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin',
               });
-              if (res.ok) this.savedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              if (res.ok) {
+                this.savedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                if (! this.dirty) this.unsaved = false;
+              }
             } finally { this.saving = false; if (this.dirty) this.autosave(); }
+          },
+          // Demo helper: fill every non-absent cell with a plausible spread of
+          // marks (fails, passes and a few mastery) so the results are worth
+          // showing. The pool is in percent and each mark is scaled to its own
+          // column's maximum (25 for a test, 75 for an exam, or what the teacher
+          // set), so the example never exceeds what the column accepts. Only
+          // mark cells are filled, never the 'out of' fields.
+          fillExample() {
+            const pool = [92, 85, 78, 70, 66, 60, 55, 50, 45, 40, 35, 28, 63, 48, 73, 58, 22, 88];
+            this.$root.querySelectorAll(`input[type=number][name^='scores[']`).forEach((el, i) => {
+              if (el.disabled) return;
+              const subject = el.name.slice(7, el.name.indexOf(']'));
+              const typed = this.$root.querySelector(`input[name='max[${subject}]']`);
+              const max = Number(typed && typed.value) || Number(el.max) || 100;
+              el.value = Math.round(pool[(i * 5 + 3) % pool.length] / 100 * max);
+            });
+            this.$root.dispatchEvent(new Event('input', { bubbles: true }));
           },
           nav(e) {
             const el = e.target;
@@ -101,7 +132,7 @@
             // skip gaps: locked/graded cells (no input) and absent cells (disabled
             // input, cannot be typed into) are stepped over, up to the grid edge.
             for (let i = 0; i < 40; i++) {
-              const next = this.$el.querySelector(`input[data-r='${r}'][data-c='${c}']`);
+              const next = this.$root.querySelector(`input[data-r='${r}'][data-c='${c}']`);
               if (next && ! next.disabled) { next.focus(); next.select(); next.scrollIntoView({ block: 'nearest' }); return; }
               r += step[0]; c += step[1];
               if (r < 0 || c < 0) return;
@@ -109,7 +140,10 @@
           },
         }"
         @keydown="nav($event)"
-        @input="dirty = true" @input.debounce.2000ms="autosave()">
+        @input="dirty = true; unsaved = true" @input.debounce.2000ms="autosave()"
+        @submit="unsaved = false"
+        {{-- A mouse wheel over a focused mark must not change it: blur so the page scrolls instead. --}}
+        @wheel.passive="$event.target.matches('input[type=number]') && $event.target.blur()">
         @csrf
         <input type="hidden" name="term" value="{{ $period['term']->id }}">
         <input type="hidden" name="month" value="{{ $period['month']['value'] ?? '' }}">
@@ -151,7 +185,7 @@
           @endif
           {{-- The public demo runs APP_ENV=production, so gate on demo mode too. --}}
           @if (config('app.demo') || ! app()->environment('production'))
-            <button type="button" onclick="fillExampleMarks()"
+            <button type="button" @click="fillExample()"
               class="px-3 py-1.5 ml-auto text-sm font-medium rounded-lg text-amber-800 bg-amber-50 ring-1 ring-amber-200 hover:bg-amber-100">Fill example marks (demo)</button>
           @endif
         </div>
@@ -329,44 +363,4 @@
     @endif
 
   </div>
-
-  <script>
-    // A mouse-wheel over a focused number cell must not change the mark: blur so the page scrolls instead.
-    document.querySelectorAll('input[type=number]').forEach(function (el) {
-      el.addEventListener('wheel', function () { this.blur(); }, { passive: true });
-    });
-
-    // Warn before leaving the edit grid with unsaved marks.
-    (function () {
-      var form = document.querySelector('form[method="POST"]');
-      if (!form) return;
-      var dirty = false;
-      var markDirty = function () { dirty = true; };
-      form.addEventListener('input', markDirty);
-      form.addEventListener('change', markDirty);
-      form.addEventListener('submit', function () { dirty = false; }); // saving: allow navigation
-      window.addEventListener('beforeunload', function (e) {
-        if (dirty) { e.preventDefault(); e.returnValue = ''; }
-      });
-    })();
-
-    // Demo helper: fill every non-absent cell with a plausible spread of marks
-    // (fails, passes and a few mastery) so the results are worth showing. The
-    // pool is in percent and each mark is scaled to its own column's maximum
-    // (25 for a test, 75 for an exam, or what the teacher set), so the example
-    // never exceeds what the column accepts. Only mark cells are filled, never
-    // the "out of" fields.
-    function fillExampleMarks() {
-      var pool = [92, 85, 78, 70, 66, 60, 55, 50, 45, 40, 35, 28, 63, 48, 73, 58, 22, 88];
-      var form = document.querySelector('form[method="POST"]');
-      form.querySelectorAll('input[type=number][name^="scores["]').forEach(function (el, i) {
-        if (el.disabled) return;
-        var subject = el.name.slice(7, el.name.indexOf(']'));
-        var typed = form.querySelector('input[name="max[' + subject + ']"]');
-        var max = Number(typed && typed.value) || Number(el.max) || 100;
-        el.value = Math.round(pool[(i * 5 + 3) % pool.length] / 100 * max);
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-      });
-    }
-  </script>
 </x-page>
